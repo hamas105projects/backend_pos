@@ -1,0 +1,1 @@
+# Fix PrismaClient Error\n\n- [x] Schema: engineType = \"library\"\n- [x] Clean reinstall @prisma/client\n- [x] Multiple prisma generate\n- [ ] Add PRISMA_CLIENT_ENGINE_TYPE=\"library\" to .env\n- [ ] Final verify\n- [ ] Complete
