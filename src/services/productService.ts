@@ -1,5 +1,5 @@
 import { prisma } from '../config/database';
-import { Category } from '../constants/enum';
+import { Category } from '../constanta/enum';
 import fs from 'fs';
 import path from 'path';
 

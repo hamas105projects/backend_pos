@@ -1,5 +1,5 @@
 
-import { Role, Category } from '../constants/enum';
+import { Role, Category } from '../constanta/enum';
 import bcrypt from 'bcrypt';
 
 import { prisma } from '../config/database';

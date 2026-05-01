@@ -2,7 +2,6 @@
 export const Role = {
   EMPLOYEE: 'employee',
   ADMIN: 'admin',
-  CUSTOMER: 'customer',
 } as const;
 
 export type RoleType = typeof Role[keyof typeof Role];
@@ -47,7 +46,6 @@ export type OrderTypeType = typeof OrderType[keyof typeof OrderType];
 export const RoleLabels: Record<RoleType, string> = {
   [Role.EMPLOYEE]: 'Karyawan',
   [Role.ADMIN]: 'Admin',
-  [Role.CUSTOMER]: 'Pelanggan',
 };
 
 export const CategoryLabels: Record<CategoryType, string> = {

@@ -793,24 +793,24 @@
       ],
       "item": [
         {
-          "name": "💳 Create Transaction",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\"items\":[{\"productId\":1,\"qty\":2},{\"productId\":2,\"qty\":1}],\"paymentMethod\":\"card\",\"customerName\":\"Budi Santoso\",\"notes\":\"Test order\"}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
+  "name": "💳 Create Transaction",
+  "request": {
+    "method": "POST",
+    "header": [
+      {
+        "key": "Content-Type",
+        "value": "application/json"
+      }
+    ],
+    "body": {
+      "mode": "raw",
+      "raw": "{\"userId\": 2, \"customerName\": \"Budi Santoso\", \"paymentMethod\": \"cash\", \"orderType\": \"dine_in\", \"notes\": \"Test order\", \"items\": [{\"productId\": 1, \"quantity\": 2}, {\"productId\": 2, \"quantity\": 1}]}",
+      "options": {
+        "raw": {
+          "language": "json"
+        }
+      }
+    },
             "url": {
               "raw": "{{baseUrl}}/transactions",
               "host": ["{{baseUrl}}"],

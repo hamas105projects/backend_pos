@@ -2,11 +2,11 @@ import { Router } from 'express';
 import userRoutes from './userRoutes';
 import productRoutes from './ProductRoutes';
 import transactionRoutes from './transactionRoutes';
+import reportRoutes from './reportRoutes';  // <-- TAMBAH INI
 import env from '../config/env';
 
 const router = Router();
 
-// Health check for API
 router.get('/health', (req, res) => {
   res.status(200).json({
     status: 'success',
@@ -15,7 +15,6 @@ router.get('/health', (req, res) => {
   });
 });
 
-// Test route
 router.get('/test', (req, res) => {
   res.status(200).json({
     status: 'success',
@@ -27,9 +26,9 @@ router.get('/test', (req, res) => {
   });
 });
 
-// Register all routes
 router.use('/users', userRoutes);
 router.use('/products', productRoutes);
 router.use('/transactions', transactionRoutes);
+router.use('/reports', reportRoutes);  // <-- TAMBAH INI
 
 export default router;

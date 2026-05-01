@@ -1,5 +1,5 @@
 import Joi from 'joi';
-import { Role } from '../constants/enum';
+import { Role } from '../constanta/enum';
 
 // Register user validation
 export const registerSchema = Joi.object({
@@ -7,7 +7,7 @@ export const registerSchema = Joi.object({
   email: Joi.string().email().required(),
   phone: Joi.string().pattern(/^[0-9]{10,15}$/).optional().allow(null, ''),
   password: Joi.string().min(6).max(100).required(),
-  role: Joi.string().valid(...Object.values(Role)).default(Role.CUSTOMER),
+  role: Joi.string().valid(...Object.values(Role)).default(Role.EMPLOYEE),
 });
 
 // Login validation

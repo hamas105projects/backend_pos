@@ -1,7 +1,7 @@
 import { prisma } from '../config/database';
 import { generateInvoiceNumber } from '../utils/generateInvoice';
 import { calculateSubtotal, calculateGrandTotal } from '../utils/calculatePrice';
-import { PaymentStatus } from '../constants/enum';
+import { PaymentStatus } from '../constanta/enum';
 
 export const transactionService = {
   // Create new transaction
@@ -53,20 +53,17 @@ export const transactionService = {
         productName: product.name,
         quantity: item.quantity,
         unitPrice: product.price,
-        subtotal,
       });
     }
     
     const grandTotal = calculateGrandTotal(totalAmount, discount, tax);
-    
-    // Generate invoice number
     const invoiceNumber = await generateInvoiceNumber(prisma);
     
     // Create transaction
     const transaction = await prisma.transaction.create({
       data: {
         invoiceNumber,
-        userId,
+        user: { connect: { id: userId } },
         customerName,
         totalAmount,
         discount,
@@ -95,15 +92,16 @@ export const transactionService = {
     return transaction;
   },
   
-  // Get all transactions
+  // Get all transactions with flexible filters
   async getAllTransactions(
     page: number = 1,
     limit: number = 10,
     filters?: {
-      startDate?: Date;
-      endDate?: Date;
+      startDate?: string;  // Changed to string for easier frontend integration
+      endDate?: string;    // Changed to string for easier frontend integration
       paymentStatus?: string;
       paymentMethod?: string;
+      orderType?: string;   // Added orderType filter
       userId?: number;
     }
   ) {
@@ -113,21 +111,42 @@ export const transactionService = {
       deletedAt: null,
     };
     
+    // Handle date filters (flexible: can have start only, end only, or both)
     if (filters?.startDate || filters?.endDate) {
       where.transactionDate = {};
-      if (filters.startDate) where.transactionDate.gte = filters.startDate;
-      if (filters.endDate) where.transactionDate.lte = filters.endDate;
+      
+      if (filters.startDate) {
+        // Set to start of day
+        const startDateTime = new Date(filters.startDate);
+        startDateTime.setHours(0, 0, 0, 0);
+        where.transactionDate.gte = startDateTime;
+      }
+      
+      if (filters.endDate) {
+        // Set to end of day
+        const endDateTime = new Date(filters.endDate);
+        endDateTime.setHours(23, 59, 59, 999);
+        where.transactionDate.lte = endDateTime;
+      }
     }
     
-    if (filters?.paymentStatus) {
+    // Filter by payment status
+    if (filters?.paymentStatus && filters.paymentStatus !== '') {
       where.paymentStatus = filters.paymentStatus;
     }
     
-    if (filters?.paymentMethod) {
+    // Filter by payment method
+    if (filters?.paymentMethod && filters.paymentMethod !== '') {
       where.paymentMethod = filters.paymentMethod;
     }
     
-    if (filters?.userId) {
+    // Filter by order type
+    if (filters?.orderType && filters.orderType !== '') {
+      where.orderType = filters.orderType;
+    }
+    
+    // Filter by user ID (for employee role)
+    if (filters?.userId && filters.userId > 0) {
       where.userId = filters.userId;
     }
     
@@ -135,12 +154,23 @@ export const transactionService = {
       prisma.transaction.findMany({
         where,
         include: {
-          items: true,
+          items: {
+            include: {
+              product: {
+                select: {
+                  id: true,
+                  name: true,
+                  price: true,
+                }
+              }
+            }
+          },
           user: {
             select: {
               id: true,
               name: true,
               email: true,
+              phone: true,
             },
           },
         },
@@ -151,14 +181,50 @@ export const transactionService = {
       prisma.transaction.count({ where }),
     ]);
     
+    // Format transactions for frontend
+    const formattedTransactions = transactions.map(transaction => ({
+      id: transaction.id,
+      invoiceNumber: transaction.invoiceNumber,
+      transactionDate: transaction.transactionDate,
+      customerName: transaction.customerName,
+      orderType: transaction.orderType,
+      paymentMethod: transaction.paymentMethod,
+      paymentStatus: transaction.paymentStatus,
+      totalAmount: transaction.totalAmount,
+      discount: transaction.discount,
+      tax: transaction.tax,
+      grandTotal: transaction.grandTotal,
+      notes: transaction.notes,
+      userId: transaction.userId,
+      cashierName: transaction.user?.name || '-',
+      items: transaction.items.map(item => ({
+        productId: item.productId,
+        productName: item.productName,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        subtotal: item.quantity * Number(item.unitPrice)
+      }))
+    }));
+    
     return {
-      transactions,
+      success: true,
+      data: formattedTransactions,
       pagination: {
         page,
         limit,
         total,
         totalPages: Math.ceil(total / limit),
+        hasNext: page < Math.ceil(total / limit),
+        hasPrev: page > 1
       },
+      filters: {
+        startDate: filters?.startDate || null,
+        endDate: filters?.endDate || null,
+        paymentStatus: filters?.paymentStatus || null,
+        paymentMethod: filters?.paymentMethod || null,
+        orderType: filters?.orderType || null,
+        userId: filters?.userId || null
+      }
     };
   },
   
@@ -244,83 +310,5 @@ export const transactionService = {
     });
     
     return transaction;
-  },
-  
-  // Get daily sales report
-  async getDailySalesReport(date: Date) {
-    const startOfDay = new Date(date);
-    startOfDay.setHours(0, 0, 0, 0);
-    
-    const endOfDay = new Date(date);
-    endOfDay.setHours(23, 59, 59, 999);
-    
-    const transactions = await prisma.transaction.findMany({
-      where: {
-        transactionDate: {
-          gte: startOfDay,
-          lte: endOfDay,
-        },
-        paymentStatus: PaymentStatus.PAID,
-        deletedAt: null,
-      },
-      include: {
-        items: true,
-      },
-    });
-    
-    const totalSales = transactions.reduce((sum, t) => sum + Number(t.grandTotal), 0);
-    const totalTransactions = transactions.length;
-    const averageTransaction = totalTransactions > 0 ? totalSales / totalTransactions : 0;
-    
-    return {
-      date: startOfDay,
-      totalSales,
-      totalTransactions,
-      averageTransaction,
-      transactions,
-    };
-  },
-  
-  // Get monthly sales report
-  async getMonthlySalesReport(year: number, month: number) {
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0, 23, 59, 59);
-    
-    const transactions = await prisma.transaction.findMany({
-      where: {
-        transactionDate: {
-          gte: startDate,
-          lte: endDate,
-        },
-        paymentStatus: PaymentStatus.PAID,
-        deletedAt: null,
-      },
-      orderBy: { transactionDate: 'asc' },
-    });
-    
-    const totalSales = transactions.reduce((sum, t) => sum + Number(t.grandTotal), 0);
-    
-    // Group by day
-    const dailyData: any = {};
-    transactions.forEach(t => {
-      const day = t.transactionDate.getDate();
-      if (!dailyData[day]) {
-        dailyData[day] = {
-          day,
-          total: 0,
-          count: 0,
-        };
-      }
-      dailyData[day].total += Number(t.grandTotal);
-      dailyData[day].count++;
-    });
-    
-    return {
-      year,
-      month,
-      totalSales,
-      totalTransactions: transactions.length,
-      dailyReport: Object.values(dailyData),
-    };
   },
 };

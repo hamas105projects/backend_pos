@@ -1,7 +1,9 @@
 import { prisma } from '../config/database';
 import { hashPassword, comparePassword } from '../utils/hashPassword';
 import { generateToken } from '../utils/jwtHelper';
-import { Role } from '../constants/enum';
+
+// Hapus import Role, buat enum sendiri atau langsung string
+export type UserRole = 'admin' | 'employee';
 
 export const userService = {
   // Register new user
@@ -10,7 +12,7 @@ export const userService = {
     email: string;
     phone?: string;
     password: string;
-    role?: string;
+    role?: UserRole;  // Ubah tipe role
   }) {
     const { name, email, phone, password, role } = userData;
     
@@ -26,14 +28,14 @@ export const userService = {
     // Hash password
     const hashedPassword = await hashPassword(password);
     
-    // Create user
+    // Create user - default role sekarang 'employee' bukan 'customer'
     const user = await prisma.user.create({
       data: {
         name,
         email,
         phone: phone || null,
         passwordHash: hashedPassword,
-        role: (role as any) || Role.CUSTOMER,
+        role: role || 'employee', // ← Ubah dari Role.CUSTOMER ke 'employee'
       },
       select: {
         id: true,
@@ -155,17 +157,18 @@ export const userService = {
         role: true,
         createdAt: true,
         updatedAt: true,
-        transactions: {
-          take: 10,
-          orderBy: { createdAt: 'desc' },
-          select: {
-            id: true,
-            invoiceNumber: true,
-            grandTotal: true,
-            paymentStatus: true,
-            transactionDate: true,
-          },
-        },
+        // Hapus transactions jika model belum ada atau tambahkan guard
+        // transactions: {
+        //   take: 10,
+        //   orderBy: { createdAt: 'desc' },
+        //   select: {
+        //     id: true,
+        //     invoiceNumber: true,
+        //     grandTotal: true,
+        //     paymentStatus: true,
+        //     transactionDate: true,
+        //   },
+        // },
       },
     });
     
@@ -176,18 +179,20 @@ export const userService = {
     return user;
   },
   
-  // Update user
+  // Update user (admin bisa update role juga)
   async updateUser(userId: number, updateData: {
     name?: string;
     phone?: string;
     password?: string;
+    role?: UserRole;  // Tambahkan ability untuk update role
   }) {
-    const { name, phone, password } = updateData;
+    const { name, phone, password, role } = updateData;
     
     const updatePayload: any = {};
     if (name) updatePayload.name = name;
     if (phone !== undefined) updatePayload.phone = phone;
     if (password) updatePayload.passwordHash = await hashPassword(password);
+    if (role) updatePayload.role = role;  // Validasi role akan otomatis oleh DB constraint
     
     const user = await prisma.user.update({
       where: { id: userId },
@@ -271,5 +276,26 @@ export const userService = {
     }
     
     return user;
+  },
+
+  // Optional: Seed default admin user
+  async seedDefaultAdmin() {
+    const adminEmail = 'admin@example.com';
+    const existingAdmin = await prisma.user.findUnique({
+      where: { email: adminEmail },
+    });
+
+    if (!existingAdmin) {
+      const hashedPassword = await hashPassword('admin123');
+      await prisma.user.create({
+        data: {
+          name: 'Super Admin',
+          email: adminEmail,
+          passwordHash: hashedPassword,
+          role: 'admin',
+        },
+      });
+      console.log('Default admin user created');
+    }
   },
 };
